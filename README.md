@@ -22,7 +22,7 @@ Este bot automatiza a verificação de disponibilidade de agendamentos no site d
 1. Clone este repositório:
 
 ```bash
-git clone https://github.com/seu-usuario/bot-verificacao-agendamentos.git
+git clone https://github.com/Biankowski/svc-spain-bot.git
 cd bot-verificacao-agendamentos
 ```
 
