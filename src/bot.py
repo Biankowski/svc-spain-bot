@@ -1,18 +1,21 @@
 from playwright.sync_api import sync_playwright
 import time
-from .config import NO_APPOINTMENTS_TEXT, EMBASSY_URL
+import os
+from datetime import datetime
+from .config import NO_APPOINTMENTS_TEXT
 from .telegram_service import TelegramService
 
 class AppointmentBot:
     def __init__(self):
-        self.embassy_url = EMBASSY_URL
+        self.embassy_url = "https://www.exteriores.gob.es/Embajadas/brasilia/pt/Embajada/Paginas/Cita-previa.aspx"
         self.telegram_service = TelegramService()
+        self.screenshot_path = "appointment_status.png"
     
     def run(self):
         print("Iniciando verificação de agendamentos...")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             context = browser.new_context()
             page = context.new_page()
             
@@ -41,6 +44,19 @@ class AppointmentBot:
                 
                 page.wait_for_load_state("networkidle")
                 
+                print("Procurando o botão 'Nacionalidad Española'...")
+                nationality_selector = '.clsBktServiceName.clsHP a:has-text("Nacionalidad Española")'
+                page.wait_for_selector(nationality_selector, state="visible")
+                page.click(nationality_selector)
+                print("Clicando no botão 'Nacionalidad Española'...")
+                time.sleep(10)
+                
+                page.wait_for_load_state("networkidle")
+                print("Página de nacionalidade carregada")
+                
+                print("Tirando screenshot da página...")
+                page.screenshot(path=self.screenshot_path, full_page=True)
+                
                 page_content = page.content()
                 has_appointments = NO_APPOINTMENTS_TEXT not in page_content
                 
@@ -49,15 +65,23 @@ class AppointmentBot:
                 else:
                     print("Não há agendamentos disponíveis.")
                 
-                self.telegram_service.send_notification(has_appointments)
+                self.telegram_service.send_screenshot(self.screenshot_path, has_appointments)
+                
+                if os.path.exists(self.screenshot_path):
+                    os.remove(self.screenshot_path)
                 
                 return has_appointments
                 
             except Exception as e:
                 print(f"Erro durante a verificação: {str(e)}")
-                self.telegram_service.send_notification(False)
+                try:
+                    page.screenshot(path=self.screenshot_path)
+                    self.telegram_service.send_screenshot(self.screenshot_path, False, f"Erro: {str(e)}")
+                    if os.path.exists(self.screenshot_path):
+                        os.remove(self.screenshot_path)
+                except:
+                    self.telegram_service.send_notification(False, f"Erro ao verificar agendamentos: {str(e)}")
                 return False
             
             finally:
-                time.sleep(10)
                 browser.close() 
