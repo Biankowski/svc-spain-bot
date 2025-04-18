@@ -6,16 +6,18 @@ from .config import NO_APPOINTMENTS_TEXT
 from .telegram_service import TelegramService
 
 class AppointmentBot:
-    def __init__(self):
+    def __init__(self, browser_type="firefox"):
         self.embassy_url = "https://www.exteriores.gob.es/Embajadas/brasilia/pt/Embajada/Paginas/Cita-previa.aspx"
         self.telegram_service = TelegramService()
         self.screenshot_path = "appointment_status.png"
+        self.browser_type = browser_type.lower()
     
     def run(self):
         print("Iniciando verificação de agendamentos...")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser_launcher = getattr(p, self.browser_type)
+            browser = browser_launcher.launch(headless=False)
             context = browser.new_context()
             page = context.new_page()
             
