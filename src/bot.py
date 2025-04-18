@@ -16,16 +16,35 @@ class AppointmentBot:
         print("Iniciando verificação de agendamentos...")
         
         with sync_playwright() as p:
+
             browser_launcher = getattr(p, self.browser_type)
             browser = browser_launcher.launch(headless=False)
             context = browser.new_context()
+            
+            # Configurar contexto para não usar cache
+            context = browser.new_context(
+                bypass_csp=True,  # Ignora política de segurança de conteúdo
+                java_script_enabled=True,
+                ignore_https_errors=True,
+                service_workers="block",  # Bloqueia service workers que podem armazenar cache
+                viewport={"width": 1920, "height": 1080},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36"
+            )
+            
+            # Configurar cabeçalhos para evitar cache
             page = context.new_page()
+            page.set_extra_http_headers({
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            })
             
             try:
-                page.goto(self.embassy_url)
-                print("Acessando o site da embaixada...")
+                # Limpar cookies antes de iniciar
+                context.clear_cookies()
                 
-                page.wait_for_load_state("networkidle")
+                page.goto(self.embassy_url, wait_until="networkidle")
+                print("Acessando o site da embaixada...")
                 
                 print("Procurando o link de agendamento pelo XPath...")
                 xpath_selector = '//*[@id="main-container"]/main/div[2]/div[1]/section/div/div[2]/div/p[4]/a'
@@ -86,4 +105,9 @@ class AppointmentBot:
                 return False
             
             finally:
-                browser.close() 
+                # Limpeza final
+                try:
+                    context.clear_cookies()
+                    browser.close()
+                except:
+                    pass 
